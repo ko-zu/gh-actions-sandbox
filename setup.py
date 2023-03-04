@@ -4,10 +4,17 @@
 import codecs
 from setuptools import setup
 
+
+### version placeholder for release automation
+### the last digit should be 0 while development, will be replaced by actions.
+### '^__version__ = "([0-9\.]+)\.(\d+)"$'
+__version__ = "0.9.4.0"
+###
+
 description = codecs.open('README.md', encoding='utf-8').read()
 
 setup(name="publicsuffixlist",
-      version="0.9.3",
+      version=__version__,
       packages=["publicsuffixlist"],
       package_data={
           "publicsuffixlist": [
