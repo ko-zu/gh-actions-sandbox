@@ -22,7 +22,7 @@ jobs:
     # checkout main temporary, then create local publish branch and update it.
     - uses: actions/checkout@v3
       with:
-        ref: ${{ envs.BASEBRANCH }}
+        ref: ${{ env.BASEBRANCH }}
 
     - name: Set git config
       run: |
