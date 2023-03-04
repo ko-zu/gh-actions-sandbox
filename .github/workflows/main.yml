@@ -4,8 +4,14 @@ on:
   push:
     branches:
     - main
-  #schedule:
-  #  - cron: "35 1 * * *"
+  schedule:
+    - cron: "35 1 * * *"
+
+envs:
+  BASEBRANCH: main
+  WORKBRANCH: autorelease
+  USERNAME: ko-zu (github-actions)
+  USEREMAIL: causeless@gmail.com
 
 
 jobs:
@@ -16,12 +22,12 @@ jobs:
     # checkout main temporary, then create local publish branch and update it.
     - uses: actions/checkout@v3
       with:
-        ref: main
+        ref: ${{ envs.BASEBRANCH }}
 
     - name: Set git config
       run: |
-        git config user.name "ko-zu (github-actions)"
-        git config user.email "causeless@gmail.com"
+        git config user.name "$USERNAME"
+        git config user.email "$USEREMAIL"
     
     - name: Tag main branch
       if: ${{ github.event_name != 'schedule' }}
@@ -31,21 +37,20 @@ jobs:
         [[ -z "$BASEVERSION" ]] && exit 1
         TAG=v${BASEVERSION}
         
-        git fetch origin main
-        git tag ${TAG} origin/main
+        git fetch origin $BASEBRANCH
+        git tag ${TAG} origin/$BASEBRANCH
         git push origin ${TAG}
 
-    - name: Update local publish branch
+    - name: Update automation branch
       run: |
-        # create working publish branch
-        git fetch origin publish
-        git checkout origin/publish -b publish
+        git fetch origin $WORKBRANCH
+        git checkout origin/$WORKBRANCH -b $WORKBRANCH
     
     - name: Sync with main on new release
       if: ${{ github.event_name != 'schedule' }}
       run: |
         git merge -X theirs --allow-unrelated-histories \
-          origin/main -m "Automated merge: sync with 'origin/main' v${BASEVERSION}"
+          origin/$BASEBRANCH -m "Automated merge: sync with 'origin/${BASEBRANCH}' v${BASEVERSION}"
 
     - name: Set up Python
       uses: actions/setup-python@v3
@@ -83,7 +88,7 @@ jobs:
 
         git add setup.py publicsuffixlist/public_suffix_list.dat
         git commit -m "Automated release: ${NEWTAG}"
-        git push origin publish
+        git push origin $WORKBRANCH
         git tag ${NEWTAG}
         git push origin ${NEWTAG}
     
