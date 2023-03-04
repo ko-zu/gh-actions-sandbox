@@ -3,16 +3,17 @@ name: Publish new package with the latest PSL
 on:
   push:
     tags:
-    - "v*.0" # kickstart manual release cycle
+    - "v*" # kickstart manual release cycle
   #schedule:
   #  - cron: "35 1 * * *"
+
 
 jobs:
   publish-package-with-psl:
     runs-on: ubuntu-latest
     steps:
 
-    # first checkout main branch, then create local publish branch and update it.
+    # checkout main temporary, then create local publish branch and update it.
     - uses: actions/checkout@v3
       with:
         ref: main
@@ -23,14 +24,18 @@ jobs:
         git config user.email "causeless@gmail.com"
 
         # parse version from main repo
-        VERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
-        
-        git fetch origin main
+        BASEVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
+
+        # create working publish branch
         git fetch origin publish
         git checkout origin/publish -b publish
-
+    
+    - name: Sync with main on new release
+      if: github.event_name != "schedule"
+      run: |
+        git fetch origin main
         git merge -X theirs --allow-unrelated-histories \
-          origin/main -m "Automated Merge: sync with 'origin/main' v${VERSION}"
+          origin/main -m "Automated merge: sync with 'origin/main' v${BASEVERSION}"
 
     - name: Set up Python
       uses: actions/setup-python@v3
@@ -42,18 +47,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install setuptools wheel twine requests
 
-    - name: Check if PSL has been changed
+    - name: Commit and push the change
       run: |
         pip install .
         python -m publicsuffixlist.update
 
-    - name: Commit the change
-      run: |
         # replace the version
         VERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         NEWDATE=$(date -u "+%Y%m%d")
         sed -ri 's/^(__version__ = "[0-9\\.]+).[0-9]+"$/\1.'${NEWDATE}'"/' setup.py
-        NEWTAG=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/v\1/p' setup.py)
+        NEWVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
+        NEWTAG=gha${NEWVERSION}
 
         # break if there is no change in the list, or not a manual release request
         echo ${VERSION} | grep -qE "\.0$" || \
@@ -66,7 +70,7 @@ jobs:
         python -m publicsuffixlist.test
         
         git add setup.py publicsuffixlist/public_suffix_list.dat
-        git commit -m "Automated release ${NEWTAG}"
+        git commit -m "Automated release: ${NEWTAG}"
         git push origin publish
         git tag ${NEWTAG}
         git push origin ${NEWTAG}
