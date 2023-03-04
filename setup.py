@@ -6,9 +6,10 @@ from setuptools import setup
 
 
 ### version placeholder for release automation
-### the last digit should be 0 while development, will be replaced by actions.
-### '^__version__ = "([0-9\.]+)\.(\d+)"$'
-__version__ = "0.9.13.20230304"
+# will be used to auto tagging.
+# the last digit will be replaced by actions.
+# '^__version__ = "([0-9\.]+)\.(\d+)"$'
+__version__ = "0.9.13.3"
 ###
 
 description = codecs.open('README.md', encoding='utf-8').read()
