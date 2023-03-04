@@ -31,7 +31,7 @@ jobs:
         git checkout origin/publish -b publish
     
     - name: Sync with main on new release
-      if: github.event_name != "schedule"
+      if: ${{ github.event_name != 'schedule' }}
       run: |
         git fetch origin main
         git merge -X theirs --allow-unrelated-histories \
