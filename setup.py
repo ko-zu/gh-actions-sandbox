@@ -8,7 +8,7 @@ from setuptools import setup
 ### version placeholder for release automation
 ### the last digit should be 0 while development, will be replaced by actions.
 ### '^__version__ = "([0-9\.]+)\.(\d+)"$'
-__version__ = "0.9.12.0"
+__version__ = "0.9.13.0"
 ###
 
 description = codecs.open('README.md', encoding='utf-8').read()
