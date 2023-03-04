@@ -24,7 +24,8 @@ jobs:
 
     - name: Check if merged
       run: |
-        git checkout publish
+        git checkout main
+        git checkout publish || git checkout -b publish
         git branch --merged main || git merge main
 
     - name: Check if PSL has been changed
