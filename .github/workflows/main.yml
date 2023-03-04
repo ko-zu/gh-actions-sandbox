@@ -2,8 +2,8 @@ name: Publish new package with the latest PSL
 
 on:
   push:
-    tags:
-    - "v*" # kickstart manual release cycle
+    branches:
+    - main
   #schedule:
   #  - cron: "35 1 * * *"
 
@@ -18,14 +18,25 @@ jobs:
       with:
         ref: main
 
-    - name: Update local publish branch
+    - name: Set git config
       run: |
         git config user.name "ko-zu (github-actions)"
         git config user.email "causeless@gmail.com"
-
+    
+    - name: Tag main branch
+      if: ${{ github.event_name != 'schedule' }}
+      run: |
         # parse version from main repo
         BASEVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
+        [[ -z "$BASEVERSION" ]] && exit 1
+        TAG=v${BASEVERSION}
+        
+        git fetch origin main
+        git tag ${TAG} origin/main
+        git push origin ${TAG}
 
+    - name: Update local publish branch
+      run: |
         # create working publish branch
         git fetch origin publish
         git checkout origin/publish -b publish
@@ -33,7 +44,6 @@ jobs:
     - name: Sync with main on new release
       if: ${{ github.event_name != 'schedule' }}
       run: |
-        git fetch origin main
         git merge -X theirs --allow-unrelated-histories \
           origin/main -m "Automated merge: sync with 'origin/main' v${BASEVERSION}"
 
@@ -47,28 +57,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install setuptools wheel twine requests
 
-    - name: Commit and push the change
+    - name: Commit the change and build if required
+      id: gennewversion
       run: |
         pip install .
         python -m publicsuffixlist.update
-
+        
         # replace the version
         VERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         NEWDATE=$(date -u "+%Y%m%d")
         sed -ri 's/^(__version__ = "[0-9\\.]+).[0-9]+"$/\1.'${NEWDATE}'"/' setup.py
         NEWVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
-        NEWTAG=gha${NEWVERSION}
-
-        # break if there is no change in the list, or not a manual release request
-        echo ${VERSION} | grep -qE "\.0$" || \
-          ! git diff --exit-code --quiet publicsuffixlist/public_suffix_list.dat || \
-          exit 1
-
+        NEWTAG=v${NEWVERSION}-gha
+        
         pip install .
         python setup.py sdist --formats=gztar
         python setup.py bdist_wheel --universal
         python -m publicsuffixlist.test
-        
+
+        # break if there is no change while scheduled run
+        if [[ "${{ github.event_name }}" = "schedule" ]] ; then
+          ! git diff --exit-code --quiet publicsuffixlist/public_suffix_list.dat || \
+          exit 1
+        fi
+
         git add setup.py publicsuffixlist/public_suffix_list.dat
         git commit -m "Automated release: ${NEWTAG}"
         git push origin publish
@@ -76,6 +88,7 @@ jobs:
         git push origin ${NEWTAG}
     
     - name: Publish package to TestPyPI
+      if: ${{ steps.gennewversion.outcome == "success" }}
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
