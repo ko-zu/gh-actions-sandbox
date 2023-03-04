@@ -11,16 +11,18 @@ jobs:
   publish-package-with-psl:
     runs-on: ubuntu-latest
     steps:
-    # use main branch and 
+
+    # first checkout main branch, then create local publish branch and update it.
     - uses: actions/checkout@v3
       with:
         ref: main
 
     - name: Update local publish branch
       run: |
+        git fetch origin main
         git fetch origin publish
         git checkout origin/publish -b publish
-        git branch --merged main || git merge main
+        git merge -X theirs origin/main -m "Automated Merge: 'origin/main' into 'publish'"
 
     - name: Set up Python
       uses: actions/setup-python@v3
