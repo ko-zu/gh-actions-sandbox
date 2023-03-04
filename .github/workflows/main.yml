@@ -22,7 +22,8 @@ jobs:
         git fetch origin main
         git fetch origin publish
         git checkout origin/publish -b publish
-        git merge -X theirs origin/main -m "Automated Merge: 'origin/main' into 'publish'"
+        git merge -X theirs --allow-unrelated-histories \
+          origin/main -m "Automated Merge: sync with 'origin/main'"
 
     - name: Set up Python
       uses: actions/setup-python@v3
@@ -61,7 +62,7 @@ jobs:
         python -m publicsuffixlist.test
         
         git add setup.py publicsuffixlist/public_suffix_list.dat
-        git commit -m "automated release"
+        git commit -m "Automated release ${NEWTAG}"
         git push origin publish
         git tag ${NEWTAG}
         git push origin ${NEWTAG}
