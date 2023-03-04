@@ -11,7 +11,17 @@ jobs:
   publish-package-with-psl:
     runs-on: ubuntu-latest
     steps:
+    # use main branch and 
     - uses: actions/checkout@v3
+      with:
+        ref: main
+
+    - name: Update local publish branch
+      run: |
+        git fetch origin publish
+        git checkout origin/publish -b publish
+        git branch --merged main || git merge main
+
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
@@ -21,12 +31,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install setuptools wheel twine requests
-
-    - name: Check if merged
-      run: |
-        git checkout main
-        git checkout publish || git checkout -b publish
-        git branch --merged main || git merge main
 
     - name: Check if PSL has been changed
       run: |
