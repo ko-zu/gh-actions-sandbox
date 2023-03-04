@@ -35,6 +35,7 @@ jobs:
         # parse version from main repo
         BASEVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         [[ -z "$BASEVERSION" ]] && exit 1
+        echo "BASEVERSION=${BASEVERSION}" >> $GITHUB_ENV
         TAG=v${BASEVERSION}
         
         git fetch origin $BASEBRANCH
