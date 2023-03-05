@@ -9,7 +9,7 @@ from setuptools import setup
 # will be used to auto tagging.
 # the last digit will be replaced by actions.
 # '^__version__ = "([0-9\.]+)\.(\d+)"$'
-__version__ = "0.9.19.2"
+__version__ = "0.9.19.20230305"
 ###
 
 description = codecs.open('README.md', encoding='utf-8').read()
