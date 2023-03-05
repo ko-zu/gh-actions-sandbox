@@ -72,7 +72,7 @@ jobs:
         # replace the version
         VERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         NEWDATE=$(date -u "+%Y%m%d")
-        sed -ri 's/^(__version__ = "[0-9\\.]+).[0-9]+"$/\1.'${NEWDATE}'"/' setup.py
+        sed -ri 's/^(__version__ = "[0-9\.]+)\.[0-9]+"$/\1.'${NEWDATE}'"/' setup.py
         NEWVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         NEWTAG=v${NEWVERSION}-gha
         
