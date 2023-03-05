@@ -13,6 +13,7 @@ env:
   USERNAME: ko-zu (github-actions)
   USEREMAIL: causeless@gmail.com
 
+concurrency: publish-package-with-psl
 
 jobs:
   publish-package-with-psl:
@@ -54,14 +55,14 @@ jobs:
           origin/$BASEBRANCH -m "Automated merge: sync with 'origin/${BASEBRANCH}' v${BASEVERSION}"
 
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: '3.x'
     
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel twine requests
+        python -m pip install --progress-bar off --upgrade pip
+        pip install --progress-bar off setuptools wheel twine requests
 
     - name: Commit the change and build if required
       id: gennewversion
