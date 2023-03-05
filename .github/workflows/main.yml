@@ -83,7 +83,7 @@ jobs:
 
         # break if there is no change in PSL while scheduled run
         if [[ "${{ github.event_name }}" = "schedule" ]] ; then
-          if ! git diff --exit-code publicsuffixlist/public_suffix_list.dat ; then
+          if git diff --exit-code publicsuffixlist/public_suffix_list.dat ; then
             echo "No PSL change on scheduled update"
             echo "built_package=false" >> $GITHUB_OUTPUT
             exit 0
