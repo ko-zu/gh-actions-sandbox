@@ -1,4 +1,4 @@
-name: Publish new package with the latest PSL
+name: Check and publish package
 
 on:
   push:
@@ -13,27 +13,49 @@ env:
   USERNAME: ko-zu (github-actions)
   USEREMAIL: causeless@gmail.com
 
-concurrency: publish-package-with-psl
+concurrency: publish-package-with-updated-psl
 
 jobs:
-  publish-package-with-psl:
+  verify-and-publish-main-branch:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
-
-    # checkout main temporary, then create local publish branch and update it.
     - uses: actions/checkout@v3
       with:
         ref: ${{ env.BASEBRANCH }}
 
-    - name: Set git config
+    - &setup_gitconfig
+      name: Set git config
       run: |
         git config user.name "$USERNAME"
         git config user.email "$USEREMAIL"
+
+    - &setup_python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
+        cache: "pip"
+        cache-dependency-path: "requirements-dev.txt"
     
-    - name: Tag main branch
-      if: ${{ github.event_name != 'schedule' }}
+    - name: verify the psl
       run: |
-        # parse version from main repo
+        pip install --progress-bar off -r requirements-dev.txt 
+        pip install .
+        python -m publicsuffixlist.update
+
+        if ! git diff --exit-code publicsuffixlist/public_suffix_list.dat ; then
+          # PSL not updated
+          echo "PSL in the commit is not updated. Abort."
+          exit 1
+        fi
+
+        if ! python -m publicsuffixlist.test ; then
+          echo "Test failed. Abort."
+          exit 1
+        fi
+     
+    - name: Tag and release new version
+      run: |
         BASEVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         [[ -z "$BASEVERSION" ]] && exit 1
         echo "BASEVERSION=${BASEVERSION}" >> $GITHUB_ENV
@@ -42,63 +64,89 @@ jobs:
         git fetch origin $BASEBRANCH
         git tag ${TAG} origin/$BASEBRANCH
         git push origin ${TAG}
-
-    - name: Update automation branch
-      run: |
-        git fetch origin $WORKBRANCH
-        git checkout origin/$WORKBRANCH -b $WORKBRANCH
-    
-    - name: Sync with main on new release
-      if: ${{ github.event_name != 'schedule' }}
-      run: |
-        git merge -X theirs --allow-unrelated-histories \
-          origin/$BASEBRANCH -m "Automated merge: sync with 'origin/${BASEBRANCH}' v${BASEVERSION}"
-
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-    
-    - name: Commit the change and build if required
-      id: gennewversion
-      run: |
-        python -m pip install --progress-bar off --upgrade pip
-        pip install --progress-bar off setuptools wheel twine requests
-        pip install .
-        python -m publicsuffixlist.update
         
+        # move to rebased workbranch
+        git checkout origin/$BASEBRANCH -b $WORKBRANCH
+
         # replace the version
         VERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
         NEWDATE=$(date -u "+%Y%m%d")
-        sed -ri 's/^(__version__ = "[0-9\.]+)\.[0-9]+"$/\1.'${NEWDATE}'"/' setup.py
-        NEWVERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)"$/\1/p' setup.py)
+        NEWVERSION=${VERSION}.${NEWDATE}
         NEWTAG=v${NEWVERSION}-gha
+        
+        sed -ri 's/^__version__ = "[0-9\.]+\.[0-9]+"$/__version__ = "'${NEWVERSION}'"/' setup.py
         
         pip install .
         python setup.py sdist --formats=gztar
         python setup.py bdist_wheel --universal
-        python -m publicsuffixlist.test
-
-        # break if there is no change in PSL while scheduled run
-        if [[ "${{ github.event_name }}" = "schedule" ]] ; then
-          if git diff --exit-code publicsuffixlist/public_suffix_list.dat ; then
-            echo "No PSL change on scheduled update"
-            echo "built_package=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+        
+        if ! python -m publicsuffixlist.test ; then
+          echo "Test failed. Abort."
+          exit 1
         fi
 
         git add setup.py publicsuffixlist/public_suffix_list.dat
         git commit -m "Automated release: ${NEWTAG}"
-        git push origin $WORKBRANCH
+        git push -f origin $WORKBRANCH
         git tag ${NEWTAG}
         git push origin ${NEWTAG}
 
-        echo "built_package=true" >> $GITHUB_OUTPUT
-    
-    - name: Publish package to TestPyPI
-      if: ${{ steps.gennewversion.outputs.built_package == 'true' }}
+    - &publish_to_pypi
+      name: Publish package to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
         repository_url: https://test.pypi.org/legacy/
 
+
+  scheduled-autorelease:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ env.WORKBRANCH }}
+
+    - *setup_gitconfig
+    - *setup_python
+    
+    - name: Update automation branch
+      id: gennewversion
+      run: |
+        pip install --progress-bar off -r requirements-dev.txt 
+        pip install .
+        python -m publicsuffixlist.update
+
+        if git diff --exit-code publicsuffixlist/public_suffix_list.dat ; then
+          echo "No PSL change. Skip."
+          echo "built_package=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # replace the version
+        VERSION=$(sed -nr 's/^__version__ = "([0-9\.]+)\.[0-9]+"$/\1/p' setup.py)
+        NEWDATE=$(date -u "+%Y%m%d")
+        NEWVERSION=${VERSION}.${NEWDATE}
+        NEWTAG=v${NEWVERSION}-gha
+        
+        sed -ri 's/^__version__ = "[0-9\.]+\.[0-9]+"$/__version__ = "'${NEWVERSION}'"/' setup.py
+        
+        pip install .
+        python setup.py sdist --formats=gztar
+        python setup.py bdist_wheel --universal
+        
+        if ! python -m publicsuffixlist.test ; then
+          echo "Test failed. Abort."
+          exit 1
+        fi
+
+        git add setup.py publicsuffixlist/public_suffix_list.dat
+        git commit -m "Automated release: v${NEWVERSION}"
+        git push -f origin $WORKBRANCH
+        git tag ${NEWTAG}
+        
+        echo "built_package=true" >> $GITHUB_OUTPUT
+
+
+    - if: ${{ steps.gennewversion.outputs.built_package == 'true' }}
+      <<: *publish_to_pypi
