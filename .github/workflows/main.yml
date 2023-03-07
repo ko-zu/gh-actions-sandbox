@@ -24,14 +24,12 @@ jobs:
       with:
         ref: ${{ env.BASEBRANCH }}
 
-    - &setup_gitconfig
-      name: Set git config
+    - name: Set git config
       run: |
         git config user.name "$USERNAME"
         git config user.email "$USEREMAIL"
 
-    - &setup_python
-      uses: actions/setup-python@v4
+    - uses: actions/setup-python@v4
       with:
         python-version: "3.x"
         cache: "pip"
@@ -91,8 +89,7 @@ jobs:
         git tag ${NEWTAG}
         git push origin ${NEWTAG}
 
-    - &publish_to_pypi
-      name: Publish package to TestPyPI
+    - name: Publish package to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
@@ -107,8 +104,16 @@ jobs:
       with:
         ref: ${{ env.WORKBRANCH }}
 
-    - *setup_gitconfig
-    - *setup_python
+    - name: Set git config
+      run: |
+        git config user.name "$USERNAME"
+        git config user.email "$USEREMAIL"
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
+        cache: "pip"
+        cache-dependency-path: "requirements-dev.txt"
     
     - name: Update automation branch
       id: gennewversion
@@ -148,5 +153,9 @@ jobs:
         echo "built_package=true" >> $GITHUB_OUTPUT
 
 
+    - name: Publish package to TestPyPI
     - if: ${{ steps.gennewversion.outputs.built_package == 'true' }}
-      <<: *publish_to_pypi
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        repository_url: https://test.pypi.org/legacy/
