@@ -154,7 +154,7 @@ jobs:
 
 
     - name: Publish package to TestPyPI
-    - if: ${{ steps.gennewversion.outputs.built_package == 'true' }}
+      if: ${{ steps.gennewversion.outputs.built_package == 'true' }}
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
