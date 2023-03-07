@@ -13,7 +13,7 @@ from setuptools import setup
 # will be
 # __version__ = "0.1.2.20230101"
 
-__version__ = "0.9.24"
+__version__ = "0.9.24.20230307"
 
 ###
 
