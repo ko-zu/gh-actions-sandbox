@@ -146,9 +146,10 @@ jobs:
         fi
 
         git add setup.py publicsuffixlist/public_suffix_list.dat
-        git commit -m "Automated release: v${NEWVERSION}"
+        git commit -m "Automated release: ${NEWTAG}"
         git push -f origin $WORKBRANCH
         git tag ${NEWTAG}
+        git push origin ${NEWTAG}
         
         echo "built_package=true" >> $GITHUB_OUTPUT
 
